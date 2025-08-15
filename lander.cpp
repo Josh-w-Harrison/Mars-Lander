@@ -13,7 +13,7 @@
 // ahg@eng.cam.ac.uk and gc121@eng.cam.ac.uk.
 
 #include "lander.h"
-//testing git
+//git testing 2
 // Add at file scope (top of file, outside any function)
 static std::ofstream simlog;
 static bool simlog_initialized = false;
