@@ -123,6 +123,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ai.cpp" />
     <ClCompile Include="lander.cpp" />
     <ClCompile Include="lander_graphics.cpp" />
   </ItemGroup>
