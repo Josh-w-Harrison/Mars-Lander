@@ -123,11 +123,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\land\lander.cpp" />
-    <ClCompile Include="..\land\lander_graphics.cpp" />
+    <ClCompile Include="lander.cpp" />
+    <ClCompile Include="lander_graphics.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\land\lander.h" />
+    <ClInclude Include="lander.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
