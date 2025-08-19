@@ -112,7 +112,7 @@ void autopilot(void)
 {
 	// ---- Orbital Exit and De-orbiting autopilot ----
     {
-        // Choose a perigiee target (30–40 km is a good start) and a tolerance band (e.g. ±3 km)
+		// Choose a perigiee target and tolerance band for de-orbiting.
         const double target_hp = 40000.0;  // meters
         const double band_halfwidth = 3000.0;   // meters
 
@@ -209,7 +209,7 @@ static vector3d compute_acceleration(const vector3d& pos, const vector3d& vel) {
     double CHUTE_AREA = 5.0 * (2.0 * LANDER_SIZE) * (2.0 * LANDER_SIZE); // Cross-sectional area of the parachute
 
 
-    vector3d drag = -0.5 * rho * LANDER_AREA * vel.abs() * vel * DRAG_COEF_LANDER / 2;
+    vector3d drag = -0.5 * rho * LANDER_AREA * vel.abs() * vel * DRAG_COEF_LANDER;
 
     if (parachute_status == DEPLOYED) {
         drag += -0.5 * rho * CHUTE_AREA * vel.abs() * vel * DRAG_COEF_CHUTE;
@@ -247,7 +247,7 @@ void rk4_step(vector3d& position, vector3d& velocity, double dt) {
 
 void numerical_dynamics (void)
   // This is the function that performs the numerical integration to update the
-  // lander's pose. The time step is delta_t (global variable).;
+  // The time step is delta_t (global variable).;
 {
     // Initialize log file once
     if (!simlog_initialized) {
@@ -256,11 +256,9 @@ void numerical_dynamics (void)
         simlog_initialized = true;
     }
 
-// runge integration method
+// runge-kutte integration method
 rk4_step(position, velocity, delta_t);
 
-
- // INSERT YOUR CODE
 /*
   // velocity verlet Inetgration method
  // Compute current net acceleration a(t)
