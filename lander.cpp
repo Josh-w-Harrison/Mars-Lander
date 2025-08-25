@@ -245,6 +245,53 @@ void rk4_step(vector3d& position, vector3d& velocity, double dt) {
     velocity = velocity + (dt / 6.0) * (a1 + 2.0 * a2 + 2.0 * a3 + a4);
 }
 
+void verlet_step(void) {
+    // Step 1: Compute acceleration from current position and velocity
+    vector3d a_t = compute_acceleration(position, velocity);
+    // Step 2: Update position
+    position = position + velocity * delta_t + 0.5 * a_t * (delta_t * delta_t);
+    // Step 3: Compute new acceleration at updated position
+    vector3d a_t_new = compute_acceleration(position, velocity);
+    // Step 4: Update velocity
+    velocity = velocity + 0.5 * (a_t + a_t_new) * delta_t;
+}
+
+void euler_step(void) {
+    // Step 1: Compute acceleration from current position and velocity
+    vector3d a_t = compute_acceleration(position, velocity);
+    // Step 2: Update position
+    position = position + velocity * delta_t;
+    // Step 3: Update velocity
+    velocity = velocity + a_t * delta_t;
+}
+
+void sim_logging() {
+    // Compute altitude and v_target for logging
+    double altitude = position.abs() - MARS_RADIUS;
+    const double Kh = 0.01;
+    double v_target;
+    vector3d er = position.norm();
+
+    if (altitude > 10000.0) {
+        v_target = velocity * er;
+    }
+    else {
+        v_target = -(0.5 + Kh * altitude);
+    }
+
+    // Log data only if file is open
+    if (simlog.is_open()) {
+        simlog << sim_time << ","
+            << position.x << "," << position.y << "," << position.z << ","
+            << velocity.x << "," << velocity.y << "," << velocity.z << ","
+            << altitude << ","
+            << throttle << ","
+            << v_target << "\n";
+    }
+
+    sim_time += delta_t;
+}
+
 void numerical_dynamics (void)
   // This is the function that performs the numerical integration to update the
   // The time step is delta_t (global variable).;
@@ -259,31 +306,13 @@ void numerical_dynamics (void)
 // runge-kutte integration method
 rk4_step(position, velocity, delta_t);
 
-/*
-  // velocity verlet Inetgration method
- // Compute current net acceleration a(t)
-// Step 1: Compute acceleration from current position and velocity
-vector3d a_t = compute_acceleration(position, velocity);
 
-// Step 2: Update position
-position = position + velocity * delta_t + 0.5 * a_t * (delta_t * delta_t);
+// verlet integration method
+// verlet_step();
 
-// Step 3: Compute new acceleration at updated position (estimate velocity if needed)
-vector3d a_t_new = compute_acceleration(position, velocity);  // Use predicted velocity if drag is significant
 
-// Step 4: Update velocity
-velocity = velocity + 0.5 * (a_t + a_t_new) * delta_t;
-*/
- // Euler integration
- /*
- vector3d a_t = compute_acceleration(position, velocity);
- vector3d new_position = position + velocity * delta_t; // Update position
- vector3d new_velocity = velocity + a_t * delta_t; // Update velocity
-
- // Store updated states
- position = new_position;
- velocity = new_velocity;
- */
+// euler integration method
+// euler_step();
 
  /*
  // Compute altitude and v_target for logging
