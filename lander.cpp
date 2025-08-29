@@ -1,4 +1,4 @@
-﻿// Mars lander simulator
+﻿ // Mars lander simulator
 // Version 1.11
 // Mechanical simulation functions
 // Gabor Csanyi and Andrew Gee, August 2019
@@ -13,6 +13,9 @@
 // ahg@eng.cam.ac.uk and gc121@eng.cam.ac.uk.
 
 #include "lander.h"
+#include <random>
+#include <cmath>
+#include <fstream>
 
 // Add at file scope (top of file, outside any function)
 static std::ofstream simlog;
@@ -177,7 +180,7 @@ void autopilot(void)
         stabilized_attitude = true;
 
         // Extension Tasks
-        // Deploy parachute if altitude is above 1000m and descent rate is high
+        // Deploy parachute if altitude is above 10000m and descent rate is high
         if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
             if (safe_to_deploy_parachute()) {
                 parachute_status = DEPLOYED;
@@ -438,17 +441,61 @@ void initialize_simulation (void)
     break;
 
   case 6:
-	  // a circular aerostationary orbit
-	  position = vector3d(AEROSTATIONARY_RADIUS, 0.0, 0.0);
-      velocity = vector3d(0.0, sqrt(GRAVITY * MARS_MASS / AEROSTATIONARY_RADIUS), 0.0);
-      orientation = vector3d(0.0, 0.0, 90.0);
+	// a circular aerostationary orbit
+    position = vector3d(AEROSTATIONARY_RADIUS, 0.0, 0.0);
+    velocity = vector3d(0.0, sqrt(GRAVITY * MARS_MASS / AEROSTATIONARY_RADIUS), 0.0);
+    orientation = vector3d(0.0, 0.0, 90.0);
+    delta_t = 0.1;
+    parachute_status = NOT_DEPLOYED;
+    stabilized_attitude = true;
+    autopilot_enabled = false;
+	break;
+
+  case 7: {
+      // --- Minimal random scenario with negative components & escape-velocity clamp ---
+
+      // Mars GM (mu). If you already have this, reuse yours.
+      constexpr double MU_MARS = 4.282837e13; // [m^3/s^2]
+
+      // RNG (static so it's seeded once)
+      static thread_local std::mt19937 rng(std::random_device{}());
+      auto U = [&](double a, double b) { return std::uniform_real_distribution<double>(a, b)(rng); };
+
+      // Position: keep your original scheme (above Mars along +z)
+      position = vector3d(4e6 + std::uniform_int_distribution<int>(0, 10000000)(rng), 4e6 + std::uniform_int_distribution<int>(0, 10000000)(rng), 4e6 + std::uniform_int_distribution<int>(0, 10000000)(rng));
+
+      // Velocity: allow negatives by using symmetric ranges
+      vector3d v;
+      if (position.abs() < MARS_RADIUS + 20000.0) {
+          v = vector3d(U(-200.0, 200.0), U(-200.0, 200.0), U(-200.0, 200.0));
+      }
+      else {
+          v = vector3d(U(-2000.0, 2000.0), U(-2000.0, 2000.0), U(-2000.0, 2000.0));
+      }
+
+      // Clamp speed under escape velocity at current radius (bound orbit: specific energy < 0)
+      const double r = position.abs();
+      const double v_esc = std::sqrt(2.0 * MU_MARS / r);
+      const double speed = v.abs();
+
+      if (speed >= 0.98 * v_esc) {
+          // Scale down to a safe fraction of escape speed
+          const double target = 0.90 * v_esc;
+          if (speed > 1e-9) v = v * (target / speed);
+      }
+
+      velocity = v;
+
+      // Orientation: allow negatives too (symmetric range)
+      orientation = vector3d(U(-90.0, 90.0), U(-90.0, 90.0), U(-90.0, 90.0));
+
       delta_t = 0.1;
       parachute_status = NOT_DEPLOYED;
-      stabilized_attitude = true;
-      autopilot_enabled = false;
+      stabilized_attitude = false;
+      break;
+  }
 
-  case 7:
-    break;
+
 
   case 8:
     break;
