@@ -108,7 +108,7 @@ static bool deorbit_stage(double target_hp, double band_halfwidth)
     aim_thrust_along(-v.norm());
     return false;
 }
-void proportional_controller(double h, vector3d er, double descent_rate)
+void proportional_controller(double h, double descent_rate)
 {
     // Controller parameters 
     const double Kh = 0.01;    //  
@@ -116,7 +116,7 @@ void proportional_controller(double h, vector3d er, double descent_rate)
     const double delta = 0.1;  // Throttle bias to counteract gravity
 
     // Target descent rate (note the negative sign)
-    double v_target = -(0.5 + Kh * h);
+    double v_target = -(0.5 + Kh * pow(h, 1.8));
 
     // Error term (positive if descending too fast)
     double error = v_target - descent_rate;
@@ -136,12 +136,54 @@ void proportional_controller(double h, vector3d er, double descent_rate)
     }
 }
 
-void PID_controller(void)
+void PID_controller(double h, double descent_rate)
 {
     // Controller parameters 
-    const double Kh = 0.01;    //  
-    const double Kp = 0.6;     // Controller gain
-    const double delta = 0.1;  // Throttle bias to counteract gravity
+    const double Kh = 0.01;              // slope for target descent vs altitude
+    const double Kp = 0.6;               // proportional gain (your tuned value)
+    const double Ki = 0.00;              // integral gain (start small)
+    const double Kd = 0.05;              // derivative gain (start small)
+    const double delta = 0.10;              // feed-forward bias to counter gravity
+
+
+	// Persitant variables for integral and derivative terms
+	static double integral = 0.0;      // integral term
+	static double last_error = 0.0;   // for derivative term
+
+    // Target descent rate (note the negative sign)
+    double v_target = -(0.5 + Kh * pow(h, 1.8));
+
+    // Error term (positive if descending too fast)
+    double error = v_target - descent_rate;
+
+	// Proportional term
+	double Pout = Kp * error;
+
+	// Integral term
+	integral += error * delta_t;
+	double Iout = Ki * integral;
+
+	// Derivative term
+	double derivative = (error - last_error) / delta_t;
+	double Dout = Kd * derivative;
+
+	 double PIDout = Pout + Iout + Dout;
+
+	// Adjust throttle using clamped output
+    if (PIDout <= -delta || h > 10000) {
+        throttle = 0.0;
+    }
+    else if (PIDout >= 1.0 - delta) {
+        throttle = 1.0;
+    }
+    else {
+        throttle = delta + PIDout;
+	}
+
+	// Save error for next derivative calculation
+	last_error = error;
+
+
 }
 
 void autopilot(void)
@@ -178,9 +220,9 @@ void autopilot(void)
 
 	 // ---- Landing and descent autopilot ----
     
-    proportional_controller(h, er, descent_rate);
+    //proportional_controller(h, descent_rate);
 
-    //PID_controller();
+    PID_controller(h, descent_rate);
 
     // Safety check
     if (throttle < 0.0) throttle = 0.0;
@@ -277,7 +319,7 @@ void euler_step(void) {
     velocity = velocity + a_t * delta_t;
 }
 
-void sim_logging() {
+void sim_logging(void) {
     // Compute altitude and v_target for logging
     double altitude = position.abs() - MARS_RADIUS;
     const double Kh = 0.01;
@@ -326,32 +368,9 @@ rk4_step(position, velocity, delta_t);
 // euler integration method
 // euler_step();
 
- /*
- // Compute altitude and v_target for logging
- double altitude = position.abs() - MARS_RADIUS;
- const double Kh = 0.01;
- double v_target;
- vector3d er = position.norm();
+// simulation logging
+//sim_logging();
 
- if (altitude > 10000.0) {
-     v_target = velocity * er;
- }
- else {
-     v_target = -(0.5 + Kh * altitude);
- }
-
- // Log data only if file is open
- if (simlog.is_open()) {
-     simlog << sim_time << ","
-         << position.x << "," << position.y << "," << position.z << ","
-         << velocity.x << "," << velocity.y << "," << velocity.z << ","
-         << altitude << ","
-         << throttle << ","
-         << v_target << "\n";
- }
-
- sim_time += delta_t;
- */
  // Here we can apply an autopilot to adjust the thrust, parachute and attitude
  if (autopilot_enabled) autopilot();
 
@@ -377,7 +396,7 @@ void initialize_simulation (void)
   scenario_description[4] = "elliptical orbit that clips the atmosphere and decays";
   scenario_description[5] = "descent from 200km";
   scenario_description[6] = "a circular aerostationary orbit";
-  scenario_description[7] = "";
+  scenario_description[7] = "Random";
   scenario_description[8] = "";
   scenario_description[9] = "";
 
