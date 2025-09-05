@@ -236,7 +236,7 @@ void PID_controller_test(double h, double descent_rate)
 
     // ---- D term (on error) with 1st-order low-pass ----
     const double d_raw = (error - last_error) / delta_t;
-    const double alpha = delta_t / (tau_d + delta_t);   // 0..1
+    const double alpha = delta_t / (tau_d + delta_t);   
     d_filt += alpha * (d_raw - d_filt);
     const double Dout = Kd * d_filt;
 
