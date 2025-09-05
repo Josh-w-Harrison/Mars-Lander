@@ -136,54 +136,153 @@ void proportional_controller(double h, double descent_rate)
     }
 }
 
+// Assumes global: double delta_t = 0.1;
+// 'throttle' is writable here.
+
 void PID_controller(double h, double descent_rate)
 {
-    // Controller parameters 
-    const double Kh = 0.01;              // slope for target descent vs altitude
-    const double Kp = 0.6;               // proportional gain (your tuned value)
-    const double Ki = 0.00;              // integral gain (start small)
-    const double Kd = 0.05;              // derivative gain (start small)
-    const double delta = 0.10;              // feed-forward bias to counter gravity
+    // ---- Gains & constants ----
+    const double Kh = 0.01;   // target profile slope
+    const double Kp = 0.6;    // P gain
+    const double Ki = 0.1;   // I gain (start small)
+    const double Kd = 0.05;   // D gain (can tune later)
+    const double delta = 0.05;   // feed-forward bias (gravity)
+    const double tau_d = 0.10;   // derivative filter time-const (s)
+
+    // ---- Persistent state ----
+    static double integral = 0.0;
+    static double last_error = 0.0;
+    static double d_filt = 0.0;
+
+    // ---- Target & error ----
+    const double v_target = -(0.5 + Kh * std::pow(h, 1.8));
+    const double error = v_target - descent_rate;  // want: "too fast" => error > 0
+
+    // ---- P term ----
+    const double Pout = Kp * error;
+
+    // ---- D term (on error) with 1st-order low-pass ----
+    const double d_raw = (error - last_error) / delta_t;
+    const double alpha = delta_t / (tau_d + delta_t);   // 0..1
+    d_filt += alpha * (d_raw - d_filt);
+    const double Dout = Kd * d_filt;
+
+    // ---- I term (compute next but use current for this cycle) ----
+    const double integral_next = integral + error * delta_t;
+    const double Iout = Ki * integral;
 
 
-	// Persitant variables for integral and derivative terms
-	static double integral = 0.0;      // integral term
-	static double last_error = 0.0;   // for derivative term
+    // ---- Sum, add bias, then clamp ----
+    const double PIDout = Pout + Iout + Dout;
+    double u = delta + PIDout;                 // add gravity feed-forward here
 
-    // Target descent rate (note the negative sign)
-    double v_target = -(0.5 + Kh * pow(h, 1.8));
+    // Your high-altitude engine-off rule
+    if (h > 10000.0) u = 0.0;
 
-    // Error term (positive if descending too fast)
-    double error = v_target - descent_rate;
+    // Clamp to [0,1]
+    double u_clamped = u;
+    if (u_clamped < 0.0) u_clamped = 0.0;
+    if (u_clamped > 1.0) u_clamped = 1.0;
+    throttle = u_clamped;
 
-	// Proportional term
-	double Pout = Kp * error;
+    // ---- Anti-windup: base it on the CLAMPED output, not PIDout ----
+    const bool at_low = (u_clamped <= 0.0 + 1e-6);
+    const bool at_high = (u_clamped >= 1.0 - 1e-6);
 
-	// Integral term
-	integral += error * delta_t;
-	double Iout = Ki * integral;
+    bool allow_integrate = true;
+    if (h > 10000.0)            allow_integrate = false; // engine-off region
+    if (at_high && error > 0.0) allow_integrate = false; // asking for more at max
+    if (at_low && error < 0.0) allow_integrate = false; // asking for less at min
 
-	// Derivative term
-	double derivative = (error - last_error) / delta_t;
-	double Dout = Kd * derivative;
-
-	 double PIDout = Pout + Iout + Dout;
-
-	// Adjust throttle using clamped output
-    if (PIDout <= -delta || h > 10000) {
-        throttle = 0.0;
-    }
-    else if (PIDout >= 1.0 - delta) {
-        throttle = 1.0;
+    if (allow_integrate) {
+        integral = integral_next;
     }
     else {
-        throttle = delta + PIDout;
-	}
+        // bleed integrator so u can re-enter controllable region
+        const double T_leak = 3.0; // seconds; larger = slower bleed
+        integral *= max(0.0, 1.0 - (delta_t / T_leak));
+    }
 
-	// Save error for next derivative calculation
-	last_error = error;
+    // Soft bound for safety
+    const double Imax = 10.0;
+    if (integral > Imax) integral = Imax;
+    if (integral < -Imax) integral = -Imax;
+
+    // ---- Bookkeeping / debug ----
+    last_error = error;
+}
+
+void PID_controller_test(double h, double descent_rate)
+{
+    // ---- Gains & constants ----
+    const double Kh = 0.01;   // target profile slope
+    const double Kp = 0.6;    // P gain
+    const double Ki = 0.1;   // I gain (start small)
+    const double Kd = 0.05;   // D gain (can tune later)
+    const double delta = 0.05;   // feed-forward bias (gravity)
+    const double tau_d = 0.10;   // derivative filter time-const (s)
+
+    // ---- Persistent state ----
+    static double integral = 0.0;
+    static double last_error = 0.0;
+    static double d_filt = 0.0;
+
+    // ---- Target & error ----
+    const double v_target = -(0.5 + Kh * std::pow(h, 1.8));
+    const double error = v_target - descent_rate;  // want: "too fast" => error > 0
+
+    // ---- P term ----
+    const double Pout = Kp * error;
+
+    // ---- D term (on error) with 1st-order low-pass ----
+    const double d_raw = (error - last_error) / delta_t;
+    const double alpha = delta_t / (tau_d + delta_t);   // 0..1
+    d_filt += alpha * (d_raw - d_filt);
+    const double Dout = Kd * d_filt;
+
+    // ---- I term (compute next but use current for this cycle) ----
+    const double integral_next = integral + error * delta_t;
+    const double Iout = Ki * integral;
 
 
+    // ---- Sum, add bias, then clamp ----
+    const double PIDout = Pout + Iout + Dout;
+    double u = delta + PIDout;                 // add gravity feed-forward here
+
+    // Your high-altitude engine-off rule
+    if (h > 10000.0) u = 0.0;
+
+    // Clamp to [0,1]
+    double u_clamped = u;
+    if (u_clamped < 0.0) u_clamped = 0.0;
+    if (u_clamped > 1.0) u_clamped = 1.0;
+    throttle = u_clamped;
+
+    // ---- Anti-windup: base it on the CLAMPED output, not PIDout ----
+    const bool at_low = (u_clamped <= 0.0 + 1e-6);
+    const bool at_high = (u_clamped >= 1.0 - 1e-6);
+
+    bool allow_integrate = true;
+    if (h > 10000.0)            allow_integrate = false; // engine-off region
+    if (at_high && error > 0.0) allow_integrate = false; // asking for more at max
+    if (at_low && error < 0.0) allow_integrate = false; // asking for less at min
+
+    if (allow_integrate) {
+        integral = integral_next;
+    }
+    else {
+        // bleed integrator so u can re-enter controllable region
+        const double T_leak = 3.0; // seconds; larger = slower bleed
+        integral *= max(0.0, 1.0 - (delta_t / T_leak));
+    }
+
+    // Soft bound for safety
+    const double Imax = 10.0;
+    if (integral > Imax) integral = Imax;
+    if (integral < -Imax) integral = -Imax;
+
+    // ---- Bookkeeping / debug ----
+    last_error = error;
 }
 
 void autopilot(void)
@@ -221,9 +320,9 @@ void autopilot(void)
 	 // ---- Landing and descent autopilot ----
     
     //proportional_controller(h, descent_rate);
-
-    PID_controller(h, descent_rate);
-
+    //PID_controller(h, descent_rate);
+	PID_controller_test(h, descent_rate); // For testing purposes
+     
     // Safety check
     if (throttle < 0.0) throttle = 0.0;
     if (throttle > 1.0) throttle = 1.0;
