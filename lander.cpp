@@ -108,39 +108,55 @@ static bool deorbit_stage(double target_hp, double band_halfwidth)
     aim_thrust_along(-v.norm());
     return false;
 }
+void proportional_controller(double h, vector3d er, double descent_rate)
+{
+    // Controller parameters 
+    const double Kh = 0.01;    //  
+    const double Kp = 0.6;     // Controller gain
+    const double delta = 0.1;  // Throttle bias to counteract gravity
 
+    // Target descent rate (note the negative sign)
+    double v_target = -(0.5 + Kh * h);
+
+    // Error term (positive if descending too fast)
+    double error = v_target - descent_rate;
+
+    // Controller output
+    double Pout = Kp * error;
+
+    // Adjust throttle using clamped output
+    if (Pout <= -delta || h > 10000) {
+        throttle = 0.0;
+    }
+    else if (Pout >= 1.0 - delta) {
+        throttle = 1.0;
+    }
+    else {
+        throttle = delta + Pout;
+    }
+}
+
+void PID_controller(void)
+{
+    // Controller parameters 
+    const double Kh = 0.01;    //  
+    const double Kp = 0.6;     // Controller gain
+    const double delta = 0.1;  // Throttle bias to counteract gravity
+}
 
 void autopilot(void)
 // Autopilot to adjust the engine throttle, parachute and attitude control
 {
 	// ---- Orbital Exit and De-orbiting autopilot ----
-    {
-		// Choose a perigiee target and tolerance band for de-orbiting.
-        const double target_hp = 40000.0;  // meters
-        const double band_halfwidth = 3000.0;   // meters
+    // Choose a perigiee target and tolerance band for de-orbiting.
+    const double target_hp = 40000.0;  // meters
+    const double band_halfwidth = 3000.0;   // meters
 
-        // Only shape the orbit when still high (vacuum-like). Below this, aerobrake instead.
-        const double h_atm_start = 120000.0; // meters
+    // Only shape the orbit when still high (vacuum-like). Below this, aerobrake instead.
+    const double h_atm_start = 120000.0; // meters
 
-        // Current altitude
-        const double h = position.abs() - MARS_RADIUS;
-
-        if (h > h_atm_start) {
-            if (deorbit_stage(target_hp, band_halfwidth)) {
-                // Still de-orbiting this frame
-                return;
-            }
-            // If deorbit_stage returned false, perigiee is set (or we’re coasting) — fall through
-        }
- 
-
-	// ---- Landing and descent autopilot ----
-    
-     // Controller parameters 
-    const double Kh = 0.01;    //  
-    const double Kp = 0.6;     // Controller gain
-    const double delta = 0.1;  // Throttle bias to counteract gravity
-
+    // Current altitude
+    const double h = position.abs() - MARS_RADIUS;
 
     // Compute radial unit vector
     vector3d er = position.norm();
@@ -148,52 +164,45 @@ void autopilot(void)
     // Actual descent rate (positive downwards)
     double descent_rate = velocity * er;  // Dot product
 
-	// Horizontal velocity component
-	vector3d horizontal_velocity = velocity - (descent_rate * er);
+    // Horizontal velocity component
+    vector3d horizontal_velocity = velocity - (descent_rate * er);
 
-	
-     // Target descent rate (note the negative sign)
-        double v_target = -(0.5 + Kh * h);
-
-        // Error term (positive if descending too fast)
-        double error = v_target - descent_rate;
-
-        // Controller output
-        double Pout = Kp * error;
-
-        // Adjust throttle using clamped output
-        if (Pout <= -delta || h > 10000) {
-            throttle = 0.0;
+    if (h > h_atm_start) {
+        if (deorbit_stage(target_hp, band_halfwidth)) {
+            // Still de-orbiting this frame
+            return;
         }
-        else if (Pout >= 1.0 - delta) {
-            throttle = 1.0;
-        }
-        else {
-            throttle = delta + Pout;
-        }
+        // If deorbit_stage returned false, perigiee is set (or we’re coasting) — fall through
+    }
+ 
 
-        // Safety check
-        if (throttle < 0.0) throttle = 0.0;
-        if (throttle > 1.0) throttle = 1.0;
+	 // ---- Landing and descent autopilot ----
+    
+    proportional_controller(h, er, descent_rate);
 
-        // Always stabilize attitude (engine points downward)
+    //PID_controller();
+
+    // Safety check
+    if (throttle < 0.0) throttle = 0.0;
+    if (throttle > 1.0) throttle = 1.0;
+
+    // Always stabilize attitude (engine points downward)
+    stabilized_attitude = true;
+
+    // Extension Tasks
+    // Deploy parachute if altitude is above 10000m and descent rate is high
+    if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
+        if (safe_to_deploy_parachute()) {
+            parachute_status = DEPLOYED;
+        }
+    }
+    // If the parachute is deployed, ensure the attitude is stabilized
+    if (parachute_status == DEPLOYED) {
         stabilized_attitude = true;
-
-        // Extension Tasks
-        // Deploy parachute if altitude is above 10000m and descent rate is high
-        if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
-            if (safe_to_deploy_parachute()) {
-                parachute_status = DEPLOYED;
-            }
-        }
-        // If the parachute is deployed, ensure the attitude is stabilized
-        if (parachute_status == DEPLOYED) {
-            stabilized_attitude = true;
-        }
-        // If the parachute is lost, disable stabilization
-        if (parachute_status == LOST) {
-            stabilized_attitude = false;
-        }
+    }
+    // If the parachute is lost, disable stabilization
+    if (parachute_status == LOST) {
+        stabilized_attitude = false;
     }
 }
 
