@@ -330,7 +330,6 @@ void autopilot(void)
     // Always stabilize attitude (engine points downward)
     stabilized_attitude = true;
 
-    // Extension Tasks
     // Deploy parachute if altitude is above 10000m and descent rate is high
     if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
         if (safe_to_deploy_parachute()) {
