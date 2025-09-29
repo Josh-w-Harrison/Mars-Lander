@@ -116,7 +116,7 @@ void proportional_controller(double h, double descent_rate)
     const double delta = 0.1;  // Throttle bias to counteract gravity
 
     // Target descent rate (note the negative sign)
-    double v_target = -(0.5 + Kh * pow(h, 1.8));
+    double v_target = -(0.5 + Kh * pow(h, 1.0));
 
     // Error term (positive if descending too fast)
     double error = v_target - descent_rate;
@@ -319,9 +319,9 @@ void autopilot(void)
 
 	 // ---- Landing and descent autopilot ----
     
-    //proportional_controller(h, descent_rate);
+    proportional_controller(h, descent_rate);
     //PID_controller(h, descent_rate);
-	PID_controller_test(h, descent_rate); // For testing purposes
+	//PID_controller_test(h, descent_rate); // For testing purposes
      
     // Safety check
     if (throttle < 0.0) throttle = 0.0;
@@ -331,11 +331,11 @@ void autopilot(void)
     stabilized_attitude = true;
 
     // Deploy parachute if altitude is above 10000m and descent rate is high
-    if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
+    /*if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
         if (safe_to_deploy_parachute()) {
             parachute_status = DEPLOYED;
         }
-    }
+    }*/
     // If the parachute is deployed, ensure the attitude is stabilized
     if (parachute_status == DEPLOYED) {
         stabilized_attitude = true;
@@ -368,7 +368,7 @@ static vector3d compute_acceleration(const vector3d& pos, const vector3d& vel) {
     } 
 
 	// Total acceleration
-    double total_mass = UNLOADED_LANDER_MASS + FUEL_DENSITY * fuel;
+    double total_mass = UNLOADED_LANDER_MASS + FUEL_DENSITY * fuel * FUEL_CAPACITY;
     return (thrust + drag) / total_mass + gravity;
 }
 
