@@ -142,7 +142,7 @@ void proportional_controller(double h, double descent_rate)
 void PID_controller(double h, double descent_rate)
 {
     // ---- Gains & constants ----
-    const double Kh = 0.01;   // target profile slope
+    const double Kh = 0.02;   // target profile slope
     const double Kp = 0.6;    // P gain
     const double Ki = 0.1;   // I gain (start small)
     const double Kd = 0.05;   // D gain (can tune later)
@@ -155,7 +155,7 @@ void PID_controller(double h, double descent_rate)
     static double d_filt = 0.0;
 
     // ---- Target & error ----
-    const double v_target = -(0.5 + Kh * std::pow(h, 1.8));
+    const double v_target = -(0.5 + Kh * std::pow(h, 1.0));
     const double error = v_target - descent_rate;  // want: "too fast" => error > 0
 
     // ---- P term ----
@@ -215,10 +215,10 @@ void PID_controller(double h, double descent_rate)
 void PID_controller_test(double h, double descent_rate)
 {
     // ---- Gains & constants ----
-    const double Kh = 0.01;   // target profile slope
+    const double Kh = 0.02;   // target profile slope
     const double Kp = 0.6;    // P gain
-    const double Ki = 0.1;   // I gain (start small)
-    const double Kd = 0.05;   // D gain (can tune later)
+    const double Ki = 0.3;   // I gain (start small)
+    const double Kd = 0.1;   // D gain (can tune later)
     const double delta = fuel / 1.5;   // feed-forward bias (gravity)
     const double tau_d = 0.10;   // derivative filter time-const (s)
 
@@ -228,7 +228,7 @@ void PID_controller_test(double h, double descent_rate)
     static double d_filt = 0.0;
 
     // ---- Target & error ----
-    const double v_target = -(0.5 + Kh * std::pow(h, 1.8));
+    const double v_target = -(0.5 + Kh * std::pow(h, 1.0));
     const double error = v_target - descent_rate;  // want: "too fast" => error > 0
 
     // ---- P term ----
@@ -319,9 +319,9 @@ void autopilot(void)
 
 	 // ---- Landing and descent autopilot ----
     
-    proportional_controller(h, descent_rate);
+    //proportional_controller(h, descent_rate);
     //PID_controller(h, descent_rate);
-	//PID_controller_test(h, descent_rate); // For testing purposes
+	PID_controller_test(h, descent_rate); // For testing purposes
      
     // Safety check
     if (throttle < 0.0) throttle = 0.0;
