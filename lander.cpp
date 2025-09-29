@@ -331,11 +331,11 @@ void autopilot(void)
     stabilized_attitude = true;
 
     // Deploy parachute if altitude is above 10000m and descent rate is high
-    /*if (h > 1000.0 && h < 10000 && parachute_status == NOT_DEPLOYED) {
+    if (h < 20000 && parachute_status == NOT_DEPLOYED) {
         if (safe_to_deploy_parachute()) {
             parachute_status = DEPLOYED;
         }
-    }*/
+    }
     // If the parachute is deployed, ensure the attitude is stabilized
     if (parachute_status == DEPLOYED) {
         stabilized_attitude = true;
