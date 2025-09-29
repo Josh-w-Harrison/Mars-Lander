@@ -111,9 +111,9 @@ static bool deorbit_stage(double target_hp, double band_halfwidth)
 void proportional_controller(double h, double descent_rate)
 {
     // Controller parameters 
-    const double Kh = 0.01;    //  
+    const double Kh = 0.02;    //  
     const double Kp = 0.6;     // Controller gain
-    const double delta = 0.1;  // Throttle bias to counteract gravity
+    const double delta = fuel / 1.5;  // Throttle bias to counteract gravity
 
     // Target descent rate (note the negative sign)
     double v_target = -(0.5 + Kh * pow(h, 1.0));
@@ -146,7 +146,7 @@ void PID_controller(double h, double descent_rate)
     const double Kp = 0.6;    // P gain
     const double Ki = 0.1;   // I gain (start small)
     const double Kd = 0.05;   // D gain (can tune later)
-    const double delta = 0.05;   // feed-forward bias (gravity)
+    const double delta = fuel / 1.5;   // feed-forward bias (gravity)
     const double tau_d = 0.10;   // derivative filter time-const (s)
 
     // ---- Persistent state ----
@@ -219,7 +219,7 @@ void PID_controller_test(double h, double descent_rate)
     const double Kp = 0.6;    // P gain
     const double Ki = 0.1;   // I gain (start small)
     const double Kd = 0.05;   // D gain (can tune later)
-    const double delta = 0.05;   // feed-forward bias (gravity)
+    const double delta = fuel / 1.5;   // feed-forward bias (gravity)
     const double tau_d = 0.10;   // derivative filter time-const (s)
 
     // ---- Persistent state ----
