@@ -111,12 +111,12 @@ static bool deorbit_stage(double target_hp, double band_halfwidth)
 void proportional_controller(double h, double descent_rate)
 {
     // Controller parameters 
-    const double Kh = 0.02;    //  
-    const double Kp = 0.6;     // Controller gain
+    const double Kh = 0.017;    //  
+	const double Kp = 1.2;     // Controller gain 0.9 if pow(h, 1.0) 1.2 if pow(h,1.1)
     const double delta = fuel / 1.5;  // Throttle bias to counteract gravity
 
     // Target descent rate (note the negative sign)
-    double v_target = -(0.5 + Kh * pow(h, 1.0));
+    double v_target = -(0.5 + Kh * pow(h, 1.1));
 
     // Error term (positive if descending too fast)
     double error = v_target - descent_rate;
@@ -125,7 +125,7 @@ void proportional_controller(double h, double descent_rate)
     double Pout = Kp * error;
 
     // Adjust throttle using clamped output
-    if (Pout <= -delta || h > 10000) {
+    if (Pout <= -delta) {
         throttle = 0.0;
     }
     else if (Pout >= 1.0 - delta) {
@@ -142,8 +142,8 @@ void proportional_controller(double h, double descent_rate)
 void PID_controller(double h, double descent_rate)
 {
     // ---- Gains & constants ----
-    const double Kh = 0.02;   // target profile slope
-    const double Kp = 0.6;    // P gain
+    const double Kh = 0.017;   // target profile slope
+    const double Kp = 1.2;    // P gain
     const double Ki = 0.1;   // I gain (start small)
     const double Kd = 0.05;   // D gain (can tune later)
     const double delta = fuel / 1.5;   // feed-forward bias (gravity)
@@ -155,7 +155,7 @@ void PID_controller(double h, double descent_rate)
     static double d_filt = 0.0;
 
     // ---- Target & error ----
-    const double v_target = -(0.5 + Kh * std::pow(h, 1.0));
+    const double v_target = -(0.5 + Kh * std::pow(h, 1.1));
     const double error = v_target - descent_rate;  // want: "too fast" => error > 0
 
     // ---- P term ----
@@ -175,9 +175,6 @@ void PID_controller(double h, double descent_rate)
     // ---- Sum, add bias, then clamp ----
     const double PIDout = Pout + Iout + Dout;
     double u = delta + PIDout;                 // add gravity feed-forward here
-
-    // Your high-altitude engine-off rule
-    if (h > 10000.0) u = 0.0;
 
     // Clamp to [0,1]
     double u_clamped = u;
@@ -215,8 +212,8 @@ void PID_controller(double h, double descent_rate)
 void PID_controller_test(double h, double descent_rate)
 {
     // ---- Gains & constants ----
-    const double Kh = 0.02;   // target profile slope
-    const double Kp = 0.6;    // P gain
+    const double Kh = 0.017;   // target profile slope
+    const double Kp = 1.2;    // P gain
     const double Ki = 0.3;   // I gain (start small)
     const double Kd = 0.1;   // D gain (can tune later)
     const double delta = fuel / 1.5;   // feed-forward bias (gravity)
@@ -228,7 +225,7 @@ void PID_controller_test(double h, double descent_rate)
     static double d_filt = 0.0;
 
     // ---- Target & error ----
-    const double v_target = -(0.5 + Kh * std::pow(h, 1.0));
+    const double v_target = -(0.5 + Kh * std::pow(h, 1.1));
     const double error = v_target - descent_rate;  // want: "too fast" => error > 0
 
     // ---- P term ----
@@ -248,9 +245,6 @@ void PID_controller_test(double h, double descent_rate)
     // ---- Sum, add bias, then clamp ----
     const double PIDout = Pout + Iout + Dout;
     double u = delta + PIDout;                 // add gravity feed-forward here
-
-    // Your high-altitude engine-off rule
-    if (h > 10000.0) u = 0.0;
 
     // Clamp to [0,1]
     double u_clamped = u;
@@ -321,7 +315,7 @@ void autopilot(void)
     
     //proportional_controller(h, descent_rate);
     //PID_controller(h, descent_rate);
-	PID_controller_test(h, descent_rate); // For testing purposes
+    PID_controller_test(h, descent_rate); // For testing purposes
      
     // Safety check
     if (throttle < 0.0) throttle = 0.0;
