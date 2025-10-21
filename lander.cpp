@@ -136,6 +136,15 @@ void proportional_controller(double h, double descent_rate)
     }
 }
 
+
+void proportional_hover_controller(double h, double descent_rate)
+{
+	double altitude_target = 500.0; // Target altitude for hover controller
+
+	double F_eq = GRAVITY * MARS_MASS / ((MARS_RADIUS + altitude_target) * (MARS_RADIUS + altitude_target)); // Gravitational force at altitude h
+
+    throttle = F_eq / MAX_THRUST; // Start with equilibrium throttle
+}
 // Assumes global: double delta_t = 0.1;
 // 'throttle' is writable here.
 
@@ -314,8 +323,9 @@ void autopilot(void)
 	 // ---- Landing and descent autopilot ----
     
     //proportional_controller(h, descent_rate);
+	proportional_hover_controller(h, descent_rate);
     //PID_controller(h, descent_rate);
-    PID_controller_test(h, descent_rate); // For testing purposes
+    //PID_controller_test(h, descent_rate); // For testing purposes
      
     // Safety check
     if (throttle < 0.0) throttle = 0.0;
@@ -323,7 +333,7 @@ void autopilot(void)
 
     // Always stabilize attitude (engine points downward)
     stabilized_attitude = true;
-
+    /*
     // Deploy parachute if altitude is above 10000m and descent rate is high
     if (h < 20000 && parachute_status == NOT_DEPLOYED) {
         if (safe_to_deploy_parachute()) {
@@ -338,6 +348,8 @@ void autopilot(void)
     if (parachute_status == LOST) {
         stabilized_attitude = false;
     }
+
+    */
 }
 
 static vector3d compute_acceleration(const vector3d& pos, const vector3d& vel) {
@@ -618,7 +630,15 @@ void initialize_simulation (void)
 
 
   case 8:
-    break;
+      // a descent from rest at 10km altitude
+      position = vector3d(0.0, (MARS_RADIUS + 500.0), 0.0);
+      velocity = vector3d(0.0, 0.0, 0.0);
+      orientation = vector3d(0.0, 0.0, 90.0);
+      delta_t = 0.01;
+      parachute_status = NOT_DEPLOYED;
+      stabilized_attitude = true;
+      autopilot_enabled = true;
+      break;
 
   case 9:
     break;
