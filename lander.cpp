@@ -141,34 +141,9 @@ void proportional_hover_controller(double h, double descent_rate)
 {
 	double altitude_target = 500.0; // Target altitude for hover controller
 
-	double F_eq = GRAVITY * MARS_MASS / ((MARS_RADIUS + altitude_target) * (MARS_RADIUS + altitude_target)); // Gravitational force at altitude h
+	double F_eq = GRAVITY * MARS_MASS *  200/ ((MARS_RADIUS + altitude_target) * (MARS_RADIUS + altitude_target)); // Gravitational force at altitude h
 
     throttle = F_eq / MAX_THRUST; // Start with equilibrium throttle
-
-    // Controller parameters 
-    const double Kh = 0.017;    //  
-    const double Kp = 1.2;     // Controller gain 0.9 if pow(h, 1.0) 1.2 if pow(h,1.1)
-    const double delta = F_eq;  // Throttle bias to counteract gravity
-
-    // Target descent rate (note the negative sign)
-    double v_target = -(0.5 + Kh * h);
-
-    // Error term (positive if descending too fast)
-    double error = v_target - descent_rate;
-
-    // Controller output
-    double Pout = Kp * error;
-
-    // Adjust throttle using clamped output
-    if (Pout <= -delta) {
-        throttle = 0.0;
-    }
-    else if (Pout >= 1.0 - delta) {
-        throttle = 1.0;
-    }
-    else {
-        throttle = delta + Pout;
-    }
 }
 // Assumes global: double delta_t = 0.1;
 // 'throttle' is writable here.
@@ -486,7 +461,7 @@ void numerical_dynamics (void)
         simlog_initialized = true;
     }
 
-// runge-kutte integration method
+// runge-kutta integration method
 rk4_step(position, velocity, delta_t);
 
 
